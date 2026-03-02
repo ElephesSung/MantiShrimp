@@ -92,8 +92,8 @@ The simulator is an agent-based stochastic dynamical system in 2D, with continuo
 
 There are two populations:
 
-- Killers: positions \(\mathbf{x}^K_i(t)\), polarity \(\boldsymbol\mu^K_i(t)\), internal state \(s_i(t)\in[0,1]\), and killing probability \(p_i(t)\).
-- Targets: positions \(\mathbf{x}^T_j(t)\), polarity \(\boldsymbol\mu^T_j(t)\), internal state \(q_j(t)\in[0,1]\), and death factor \(D_j(t)\).
+- Killers: positions $\mathbf{x}^K_i(t)$, polarity $\boldsymbol\mu^K_i(t)$, internal state $s_i(t)\in[0,1]$, and killing probability $p_i(t)$.
+- Targets: positions $\mathbf{x}^T_j(t)$, polarity $\boldsymbol\mu^T_j(t)$, internal state $q_j(t)\in[0,1]$, and death factor $D_j(t)$.
 
 ### 1) Initial spatial configuration
 
@@ -113,10 +113,10 @@ A `min_distance_factor` scales the minimum permitted centre–centre separation.
 
 For each alive cell, polarity evolves as a mean-reverting stochastic process (Euler step):
 
-\[
+$$
 \boldsymbol\mu(t+dt)=\boldsymbol\mu(t) - \gamma\,\boldsymbol\mu(t)\,dt + \sigma\sqrt{dt}\,\boldsymbol\eta,
 \quad \boldsymbol\eta\sim\mathcal{N}(\mathbf{0},\mathbf{I}_2)
-\]
+$$
 
 Killers and targets have separate parameters:
 
@@ -131,25 +131,25 @@ Pairs of alive cells interact via a truncated Lennard–Jones force with species
 - target–target: `LJ_EPSILON_TT`, `SIGMA_TT`
 - killer–target: `LJ_EPSILON_KT`, `SIGMA_KT`
 
-The simulator uses the standard form (implemented in `assistant_function.lj_force`), applied only when \(r \le 2.5\sigma\).
+The simulator uses the standard form (implemented in `assistant_function.lj_force`), applied only when $r \le 2.5\sigma$.
 
 ### 4) Position update
 
 For each alive cell, positions update as:
 
-\[
+$$
 \mathbf{x}(t+dt)=\mathbf{x}(t)
 + M\,\boldsymbol\mu(t)\,dt
 + \sigma_{\text{trans}}\sqrt{dt}\,\boldsymbol\xi
 + \mathbf{F}(t)\,dt
-\]
+$$
 
 where:
 
-- \(M\) is `KILLER_MOTILITY` or `TARGET_MOTILITY`,
-- \(\sigma_{\text{trans}}\) is `KILLER_TRANS_NOISE` or `TARGET_TRANS_NOISE`,
-- \(\mathbf{F}(t)\) is the net Lennard–Jones force from all neighbours (summed over pairs),
-- \(\boldsymbol\xi\sim\mathcal{N}(\mathbf{0},\mathbf{I}_2)\).
+- $M$ is `KILLER_MOTILITY` or `TARGET_MOTILITY`,
+- $\sigma_{\text{trans}}$ is `KILLER_TRANS_NOISE` or `TARGET_TRANS_NOISE`,
+- $\mathbf{F}(t)$ is the net Lennard–Jones force from all neighbours (summed over pairs),
+- $\boldsymbol\xi\sim\mathcal{N}(\mathbf{0},\mathbf{I}_2)$.
 
 ### 5) Boundary conditions
 
@@ -162,81 +162,80 @@ Two boundary modes are supported:
 
 The simulator chooses an adaptive time step based on the maximum net force magnitude:
 
-\[
+$$
 dt = \min\left(\frac{DS}{\max_i\lVert\mathbf{F}_i\rVert},\; DT0,\; T_{\text{end}}-t\right)
-\]
+$$
 
 This stabilises motion when forces become large, while respecting the user-chosen maximum step `DT0`.
 
 ### 7) Contact detection
 
-A killer \(i\) and target \(j\) are defined to be in *contact* when their separation is below a cutoff:
+A killer $i$ and target $j$ are defined to be in *contact* when their separation is below a cutoff:
 
-\[
+$$
 \lVert\mathbf{x}^T_j - \mathbf{x}^K_i\rVert \le d_c
-\]
+$$
 
-The default cutoff is tied to the killer–target \(\sigma\) via:
+The default cutoff is tied to the killer–target $\sigma$ via:
 
-\[
+$$
 d_c = 1.2\,2^{1/6}\,\sigma_{KT}
-\]
+$$
 
 Contacts are recorded each step both as:
 
-- a boolean contact matrix \(C_{ij}(t)\),
+- a boolean contact matrix $C_{ij}(t)$,
 - per-cell partner lists stored in `cell_history_df["contacts"]`.
 
 The simulator also tracks **new contacts** per step to support “probability decay per contact” modes.
 
 ### 8) Probabilistic killing decisions (per contact episode)
 
-Each killer has a killing probability \(p_i(t)\). When a killer and target enter contact, a Bernoulli decision is sampled and **memoised per (killer, target, conjugation-count)**. Concretely, the key is:
+Each killer has a killing probability $p_i(t)$. When a killer and target enter contact, a Bernoulli decision is sampled and **memoised per (killer, target, conjugation-count)**. Concretely, the key is:
 
-\[
-(k\_idx,\; t\_idx,\; n\_{conj})
-\]
+$$
+(k_{\text{idx}},\; t_{\text{idx}},\; n_{\text{conj}})
+$$
 
-where \(n\_{conj}\) is the number of *new* contact episodes between that pair so far.
+where $n_{\text{conj}}$ is the number of *new* contact episodes between that pair so far.
 
 This design ensures the same pair can make a fresh decision on each new re-contact episode (rather than resampling every frame).
 
 Two built-in probability modes:
 
-- `kill_prob_mode="constant"`: keep \(p_i\) fixed over time,
+- `kill_prob_mode="constant"`: keep $p_i$ fixed over time,
 - `kill_prob_mode="decay"`: when a **new contact** occurs, the killer’s probability decreases by `DECAY_PER_CONTACT` (floored at 0).
 
 Initial probabilities are set by `KILLINGProb_ini(...)`:
 
-- deterministic killing: `KILL_PROBABILISTIC=False` ⇒ \(p_i=1\),
+- deterministic killing: `KILL_PROBABILISTIC=False` ⇒ $p_i=1$,
 - random: `KILL_PROB_INIT=None` ⇒ uniform in `[0.1, 0.9]`,
 - fixed scalar: `KILL_PROB_INIT=0.3`,
 - normal: `KILL_PROB_INIT=(mu, sigma)`.
 
 ### 9) Target death factor dynamics (accumulation + optional recovery)
 
-Targets accumulate a death factor \(D_j(t)\) while being “effectively killed” by contacting killers; it relaxes back toward 0 with rate `RECOVERY_SPEED` when enabled.
+Targets accumulate a death factor $D_j(t)$ while being “effectively killed” by contacting killers; it relaxes back toward 0 with rate `RECOVERY_SPEED` when enabled.
 
-In the default “recovery” mode (`RECOVERY=True`), for each target \(j\):
+In the default “recovery” mode (`RECOVERY=True`), for each target $j$:
 
-\[
-\frac{dD_j}{dt} = \underbrace{\text{kill\_rate}_j}_{\ge 0} - \underbrace{\rho D_j}_{\text{recovery}}
-\]
+$$
+\frac{dD_j}{dt} = \underbrace{k_j}_{\ge 0} - \underbrace{\rho D_j}_{\text{recovery}}
+$$
 
-The instantaneous kill rate is proportional to the target’s state \(q_j\) and a mixture of a baseline and state-weighted killer contributions:
+The instantaneous kill rate is proportional to the target’s state $q_j$ and a mixture of a baseline and state-weighted killer contributions:
 
-\[
-\text{kill\_rate}_j
-= q_j\left( \alpha\,n_j
-+ (1-\alpha)\sum_{i\in\mathcal{K}_j} s_i \right)
-\]
+$$
+k_j = q_j\left(\alpha\,n_j + (1-\alpha)\sum_{i\in\mathcal{K}_j} s_i\right)
+$$
 
 where:
 
-- \(\mathcal{K}_j\) is the set of killers deemed to be killing target \(j\) this step (from the memoised decisions),
-- \(n_j = |\mathcal{K}_j|\),
-- \(\alpha\) is set by `MIN_KILLING_RATE` vs `MAX_KILLING_RATE` in code (currently 0 and 1 respectively),
-- \(\rho\) is `RECOVERY_SPEED`.
+- $k_j$ is the instantaneous kill-rate contribution for target $j$,
+- $\mathcal{K}_j$ is the set of killers deemed to be killing target $j$ this step (from the memoised decisions),
+- $n_j = |\mathcal{K}_j|$,
+- $\alpha$ is set by `MIN_KILLING_RATE` vs `MAX_KILLING_RATE` in code (currently 0 and 1 respectively),
+- $\rho$ is `RECOVERY_SPEED`.
 
 A target is declared dead when its death factor reaches the threshold `KILL_DEATH_THRESHOLD`, and death is registered when the target is no longer in contact (avoids “dying mid-contact” in the default mode).
 
@@ -244,18 +243,18 @@ If `RECOVERY=False`, targets can be driven to threshold without recovery (instan
 
 ### 10) Killer state dynamics (exhaustion-like decay)
 
-Each killer has an internal state \(s_i(t)\in[0,1]\) that modulates killing effectiveness. It is initialised by `CellState_ini(...)` (supports constants, uniform, truncated normal, or mixtures of subpopulations).
+Each killer has an internal state $s_i(t)\in[0,1]$ that modulates killing effectiveness. It is initialised by `CellState_ini(...)` (supports constants, uniform, truncated normal, or mixtures of subpopulations).
 
 During a step, the simulator accumulates:
 
-- time spent killing per killer, \(\Delta t_i\),
-- time weighted by target state, \(\Delta \tilde t_i = \sum_j q_j\,dt\) over targets that killer contributed to killing.
+- time spent killing per killer, $\Delta t_i$,
+- time weighted by target state, $\Delta \tilde t_i = \sum_j q_j\,dt$ over targets that killer contributed to killing.
 
 Then the state decays multiplicatively:
 
-\[
+$$
 s_i(t+dt) = \mathrm{clip}_{[0,1]}\Bigl(s_i(t) - s_i(t)\,[a\,\Delta t_i + (b-a)\,\Delta\tilde t_i] \Bigr)
-\]
+$$
 
 with `a=MIN_STATE_DECAY_dt` and `b=MAX_STATE_DECAY_dt`.
 
@@ -369,4 +368,4 @@ Time stepping
 
 ## Licence
 
-Add your licence text here (or link to a `LICENSE` file).
+[license](./LICENSE)
