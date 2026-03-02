@@ -262,7 +262,12 @@ with `a=MIN_STATE_DECAY_dt` and `b=MAX_STATE_DECAY_dt`.
 
 ## Repository layout and how each script is used
 
-### `assistant_function.py`
+The active code is organised under the `script/` folder:
+
+- `script/simulator/`: core simulation engine and animation utilities.
+- `script/decision-map/`: caterpillar killer-contact-history visualiser and quantifier.
+
+### `script/simulator/assistant_function.py`
 
 A utilities module containing:
 
@@ -279,7 +284,7 @@ A utilities module containing:
   - `update_cell_states(...)` (available for alternative dynamics; not currently wired into the main loop),
   - `adaptive_time_step(...)` used by the simulator.
 
-### `simulator.py`
+### `script/simulator/simulator.py`
 
 Defines the **main simulator**: `KTSimulator(...)`.
 
@@ -297,7 +302,7 @@ Key stages inside the time loop:
 
 If you’re extending the model, this is the file to hack on first.
 
-### `virsualisation.py`
+### `script/simulator/virsualisation.py`
 
 Provides `animate_KT(...)` to animate trajectories and alive/dead status in a notebook:
 
@@ -305,6 +310,20 @@ Provides `animate_KT(...)` to animate trajectories and alive/dead status in a no
 - Shows cell discs with different colours for killers, alive targets, and dead targets.
 - Optionally draws short recent trajectories.
 - Supports both `confined` and `periodic` boundary visualisation (periodic trajectories are segmented so lines don’t jump across the box).
+
+### `script/decision-map/visua_catepiller.py`
+
+Implements the caterpillar-style killer contact-history analysis and figure generation:
+
+- Defines grouped contact-history sequences (e.g., no interaction, no kill, exhausted, stochastic, serial-killing).
+- Quantifies each group by printing counts and proportions.
+- Builds a caterpillar decision map where:
+  - x-axis = non-lethal contacts,
+  - y-axis = lethal contacts,
+  - each trajectory is one killer contact-history path.
+- Exports publication-ready figures:
+  - `caterpillar_visualization.png`
+  - `caterpillar_visualization.pdf`
 
 ---
 
