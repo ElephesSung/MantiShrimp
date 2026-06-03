@@ -215,54 +215,172 @@ def apply_boundary(pos, pol, BOX_X_MIN, BOX_X_MAX, BOX_Y_MIN, BOX_Y_MAX, boundar
                 pol[over_top, 1] *= -1
     return pos, pol
 
-def lj_force(r_ij, epsilon, sigma):
-    r_norm = np.linalg.norm(r_ij)
-    if r_norm == 0:
+#def lj_force(r_ij, epsilon, sigma):
+    #r_norm = np.linalg.norm(r_ij)
+    #if r_norm == 0:
+        #return np.zeros(2)
+    #F_LJ = 24 * epsilon * ((2 * (sigma ** 12) / (r_norm ** 13)) - ((sigma ** 6) / (r_norm ** 7)))
+    #return (F_LJ / r_norm) * r_ij
+
+def hook_repulsion_force(r_ij, Krep, L): #L = KILLER_RADIUS + TARGET_RADIUS
+    delta = np.linalg.norm(r_ij)
+
+    if delta == 0:
         return np.zeros(2)
-    F_LJ = 24 * epsilon * ((2 * (sigma ** 12) / (r_norm ** 13)) - ((sigma ** 6) / (r_norm ** 7)))
-    return (F_LJ / r_norm) * r_ij
+    if delta < L:
+        F_rep = Krep * (L - delta)
+    else:
+        F_rep = 0.0
+
+    return (F_rep / delta) * r_ij
+
+
+
+def hook_net_force(r_ij, Krep, L, F_A, bound):
+    delta = np.linalg.norm(r_ij)
+
+    if delta == 0:
+        return np.zeros(2)
+
+    e_ij = r_ij / delta
+
+    # repulsion should ALWAYS act if cells overlap
+    if delta < L:
+        return Krep * (L - delta) * e_ij
+
+    # adhesion only acts for bound pairs when not overlapping
+    if bound:
+        return -F_A * e_ij
+
+    return np.zeros(2)
+
+
 
 def calculate_ij_forces(
     N_KILLER, N_TARGET,
     *,
-    killer_positions, target_positions, 
+    killer_positions, target_positions,
     killer_alive, target_alive,
-    LJ_EPSILON_KK, LJ_EPSILON_TT, LJ_EPSILON_KT,
-    SIGMA_KK, SIGMA_TT, SIGMA_KT
+    KREP_KK, KREP_TT, KREP_KT,
+    F_A_KK, F_A_TT, F_A_KT,
+    KILLER_RADIUS, TARGET_RADIUS,
+    is_bound,
+    rng,
+    k_bind,
+    k_unbind,
+    dt
 ):
-    """
-    Compute the IJ forces, only for alive cells.
-    Returns force array: shape (N_TOTAL, N_TOTAL, 2)
-    """
-    N_K = N_KILLER
-    N_T = N_TARGET
-    N_TOTAL = N_K + N_T
+
+    N_TOTAL = N_KILLER + N_TARGET
 
     positions = np.vstack([killer_positions, target_positions])
-    labels = np.array([0]*N_K + [1]*N_T)
+    labels = np.array([0]*N_KILLER + [1]*N_TARGET)
     alive = np.concatenate([killer_alive, target_alive])
 
     force = np.zeros((N_TOTAL, N_TOTAL, 2))
+    p_bind_step = 1 - np.exp(-k_bind * dt)
+    p_unbind_step = 1 - np.exp(-k_unbind * dt)
+
     for j in range(N_TOTAL):
         if not alive[j]:
             continue
+
         for k in range(j+1, N_TOTAL):
             if not alive[k]:
                 continue
+
             r_ij = positions[j] - positions[k]
-            # Determine epsilon and sigma
-            if labels[j] == 0 and labels[k] == 0:
-                sigma, epsilon = SIGMA_KK, LJ_EPSILON_KK
-            elif labels[j] == 1 and labels[k] == 1:
-                sigma, epsilon = SIGMA_TT, LJ_EPSILON_TT
-            else:
-                sigma, epsilon = SIGMA_KT, LJ_EPSILON_KT
             dist = np.linalg.norm(r_ij)
-            if 0 < dist <= 2.5 * sigma:
-                f = lj_force(r_ij, epsilon, sigma)
+
+            # default
+            bound = False
+
+
+            # parameter selection
+            if labels[j] == 0 and labels[k] == 0:
+                Krep, F_A = KREP_KK, F_A_KK
+                L = KILLER_RADIUS * 2
+                
+            elif labels[j] == 1 and labels[k] == 1:
+                Krep, F_A = KREP_TT, F_A_TT
+                L = TARGET_RADIUS * 2
+                
+            else:
+                Krep, F_A = KREP_KT, F_A_KT
+                L = KILLER_RADIUS + TARGET_RADIUS
+                
+            
+            Rcap = 1.5 * L #from the paper
+            contact_tol = 0.05 * L
+            bind_possible = dist <= (L + contact_tol)
+
+            # killer-target binding logic
+            if labels[j] == 0 and labels[k] == 1:
+
+                killer_idx = j
+                target_idx = k - N_KILLER
+
+                if is_bound[killer_idx, target_idx]:
+
+                    if dist > Rcap or rng.random() < p_unbind_step:
+                        is_bound[killer_idx, target_idx] = False
+
+                else:
+
+                    if bind_possible and rng.random() < p_bind_step:
+                        is_bound[killer_idx, target_idx] = True
+
+                bound = is_bound[killer_idx, target_idx]
+
+            if dist < Rcap:
+                f = hook_net_force(r_ij, Krep, L, F_A, bound)
                 force[j, k] += f
                 force[k, j] -= f
-    return force
+
+    return force, is_bound
+
+
+
+#def calculate_ij_forces(
+    #N_KILLER, N_TARGET,
+    #*,
+    #killer_positions, target_positions, 
+    #killer_alive, target_alive,
+    #LJ_EPSILON_KK, LJ_EPSILON_TT, LJ_EPSILON_KT,
+    #SIGMA_KK, SIGMA_TT, SIGMA_KT):
+    #"""
+    #Compute the IJ forces, only for alive cells.
+    #Returns force array: shape (N_TOTAL, N_TOTAL, 2)
+    #"""
+    #N_K = N_KILLER
+    #N_T = N_TARGET
+    #N_TOTAL = N_K + N_T
+
+    #positions = np.vstack([killer_positions, target_positions])
+    #labels = np.array([0]*N_K + [1]*N_T)
+    #alive = np.concatenate([killer_alive, target_alive])
+
+    #force = np.zeros((N_TOTAL, N_TOTAL, 2))
+    #for j in range(N_TOTAL):
+        #if not alive[j]:
+        #    continue
+        #for k in range(j+1, N_TOTAL):
+         #   if not alive[k]:
+         #       continue
+         #   r_ij = positions[j] - positions[k]
+         #   # Determine epsilon and sigma
+         #   if labels[j] == 0 and labels[k] == 0:
+         #       sigma, epsilon = SIGMA_KK, LJ_EPSILON_KK
+         #   elif labels[j] == 1 and labels[k] == 1:
+         #       sigma, epsilon = SIGMA_TT, LJ_EPSILON_TT
+         #  else:
+         #       sigma, epsilon = SIGMA_KT, LJ_EPSILON_KT
+         #   dist = np.linalg.norm(r_ij)
+         #   if 0 < dist <= 2.5 * sigma:
+         #       f = lj_force(r_ij, epsilon, sigma)
+         #       force[j, k] += f
+         #       force[k, j] -= f
+    #return force
 
 def KillingProb_ini(N_KILLER, KILL_PROB_INIT=None, KILL_PROBABILISTIC=True):
     """
@@ -408,7 +526,7 @@ def CellState_ini(N_CELL, STATE_INIT=1.0):
 def update_cell_states(
     prev_states: np.ndarray,
     *,
-    mode: str = "constant",       # "constant", "fatigue_on_contact", "ou"
+    mode: str = "fatigue_on_contact",       # "constant", "fatigue_on_contact", "ou"
     dt: float = 0.0,
     new_contacts_count: np.ndarray | None = None,  # per-killer count of NEW contacts this step
     decay_per_contact: float = 0.05,  # fatigue decrement per NEW contact
