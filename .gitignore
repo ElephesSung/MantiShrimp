@@ -1,2 +1,14 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+.venv/
+outputs/
+results/
 /Chapter_1_Exhaustion/
 /hidden/
