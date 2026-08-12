@@ -1,5 +1,9 @@
 # MantiShrimp
 
+[![CI](https://github.com/sthsci/MantiShrimp/actions/workflows/ci.yml/badge.svg)](https://github.com/sthsci/MantiShrimp/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/sthsci/MantiShrimp/blob/main/LICENSE)
+
 MantiShrimp is a Python package for agent-based modelling of killer immune
 cell–tumour cell interactions and Bayesian analysis of the resulting
 cell-level event counts.
@@ -16,21 +20,22 @@ New work should use the importable package under `src/mantishrimp`.
 
 ## ABM demonstration
 
-![Animated killer-target ABM simulation](figures/abm_demo.gif)
+![Animated killer-target ABM simulation](https://raw.githubusercontent.com/sthsci/MantiShrimp/main/figures/abm_demo.gif)
 
 Blue agents are killer immune cells, green agents are living tumour targets,
 and salmon agents are dead targets. Cells move continuously in the off-lattice
 domain; killer-target proximity can lead to stochastic synapse formation,
 damage accumulation, and target death. The animation is a visual illustration
 of one run rather than a calibrated biological prediction. A
-[full-resolution version](figures/vis_test.gif) is also available.
+[full-resolution version](https://github.com/sthsci/MantiShrimp/blob/main/figures/vis_test.gif)
+is also available.
 
 ## Install
 
 ```bash
-python -m pip install -e .
-python -m pip install -e '.[inference]'
-python -m pip install -e '.[all]'        # inference, plotting, and tests
+python -m pip install mantishrimp
+python -m pip install 'mantishrimp[inference]'
+python -m pip install 'mantishrimp[all]'  # inference and plotting
 ```
 
 Python 3.10 or newer is supported.
@@ -73,19 +78,18 @@ continuous rate heterogeneity, or both?** It operates on one integer count per
 killer cell. That count can be either the number of contact episodes or the
 number of attributed kills.
 
-![Synthetic event-count and Bayesian inference workflow](figures/syn_vali.png)
+![Synthetic event-count and Bayesian inference workflow](https://raw.githubusercontent.com/sthsci/MantiShrimp/main/figures/syn_vali.png)
 
 The workflow above has three steps:
 
-1. Each killer cell `i` has a latent event rate $\lambda_i$.
-2. Over exposure time $T_i$, its observed count is modelled as
-   $N_i\mid\lambda_i,T_i\sim\mathrm{Poisson}(\lambda_iT_i)$.
+1. Each killer cell `i` has a latent event rate `λᵢ`.
+2. Over exposure time `Tᵢ`, its observed count is modelled as
+   `Nᵢ | λᵢ, Tᵢ ~ Poisson(λᵢTᵢ)`.
 3. Bayesian inference combines the count likelihood with the parameter priors
-   to estimate $p(\theta\mid\mathcal{D})$, where
-   $\theta=(\mu_\lambda,\sigma_\lambda,\phi_0)$.
+   to estimate `p(θ | D)`, where `θ = (μλ, σλ, φ₀)`.
 
-Here $\mu_\lambda$ is the mean event rate among active killer cells,
-$\sigma_\lambda$ is their between-cell rate variation, and $\phi_0$ is the
+Here `μλ` is the mean event rate among active killer cells, `σλ` is their
+between-cell rate variation, and `φ₀` is the
 fraction of structurally inactive killer cells. Zero-count cells are retained:
 an observed zero can arise either from an active Poisson process that happened
 to produce no events or, in zero-inflated models, from the inactive component.
@@ -94,28 +98,28 @@ exposures can be supplied directly.
 
 ### Four candidate population models
 
-![Four Bayesian event-rate population models](figures/models.png)
+![Four Bayesian event-rate population models](https://raw.githubusercontent.com/sthsci/MantiShrimp/main/figures/models.png)
 
 The figure expresses the four models as restrictions of the same latent-rate
-distribution. The grey/blue mass at zero is $\phi_0$; the positive-rate
-distribution has mean $\mu_\lambda$ and standard deviation
-$\sigma_\lambda$.
+distribution. The grey/blue mass at zero is `φ₀`; the positive-rate
+distribution has mean `μλ` and standard deviation `σλ`.
 
 | Package name | Figure | Parameter restriction | Count distribution | Interpretation |
 | --- | --- | --- | --- | --- |
-| `homo` | homo | $\sigma_\lambda=0,\ \phi_0=0$ | Poisson | one shared rate |
-| `Z2P` | ZI | $\sigma_\lambda=0,\ \phi_0>0$ | zero-inflated Poisson | shared active rate plus inactive cells |
-| `Dis2P` | $\Gamma$ | $\sigma_\lambda>0,\ \phi_0=0$ | negative binomial | Gamma-distributed active-cell rates |
-| `hetero3` | ZI $\Gamma$ | $\sigma_\lambda>0,\ \phi_0>0$ | zero-inflated negative binomial | Gamma rates plus inactive cells |
+| `homo` | homo | `σλ = 0; φ₀ = 0` | Poisson | one shared rate |
+| `Z2P` | ZI | `σλ = 0; φ₀ > 0` | zero-inflated Poisson | shared active rate plus inactive cells |
+| `Dis2P` | Γ | `σλ > 0; φ₀ = 0` | negative binomial | Gamma-distributed active-cell rates |
+| `hetero3` | ZI Γ | `σλ > 0; φ₀ > 0` | zero-inflated negative binomial | Gamma rates plus inactive cells |
 
-For the Gamma models, integrating the cell-specific $\lambda_i$ values out of
+For the Gamma models, integrating the cell-specific `λᵢ` values out of
 the Poisson likelihood gives the negative-binomial count distribution. This
 lets the model estimate continuous cell-to-cell variation without sampling a
 separate rate for every killer.
 
 The original vector figures are available as
-[the inference workflow PDF](figures/syn_vali.pdf) and
-[the four-model PDF](figures/models.pdf).
+[the inference workflow PDF](https://github.com/sthsci/MantiShrimp/blob/main/figures/syn_vali.pdf)
+and
+[the four-model PDF](https://github.com/sthsci/MantiShrimp/blob/main/figures/models.pdf).
 
 ### Fit contacts and kills separately
 
@@ -153,10 +157,9 @@ Models are fitted with PyMC Sequential Monte Carlo (SMC). Each `FitResult`
 contains posterior samples for parameter recovery and a log marginal
 likelihood for model comparison. With equal prior model probabilities,
 
-$$
-\mathrm{BF}_{A,B}=\frac{p(\mathcal{D}\mid M_A)}{p(\mathcal{D}\mid M_B)}
-=\exp\left(\log Z_A-\log Z_B\right).
-$$
+```text
+BF(A, B) = p(D | M_A) / p(D | M_B) = exp(log Z_A - log Z_B)
+```
 
 The posterior answers *which parameter values are plausible within a model*;
 the Bayes factor answers *which population model is better supported by the
@@ -179,14 +182,23 @@ simulation-based inference layer.
 - `analysis.py`: evidence, posterior, sweep, and persistence helpers;
 - `plotting.py`: reusable posterior and Bayes-factor plots.
 
-See [docs/model.md](docs/model.md) for the scientific rules and
-[docs/notebook-migration.md](docs/notebook-migration.md) for the extracted
-notebook-function map.
+See the [scientific model contract](https://github.com/sthsci/MantiShrimp/blob/main/docs/model.md)
+and [notebook-function migration map](https://github.com/sthsci/MantiShrimp/blob/main/docs/notebook-migration.md).
+
+## Authors and citation
+
+MantiShrimp was developed by Elephes Sung, Szonja Skenderovic, Yixuan Li, and
+Ruben Perez-Carrasco at the Department of Life Sciences, Imperial College
+London. Elephes Sung and Szonja Skenderovic contributed equally. See
+[`AUTHORS.md`](https://github.com/sthsci/MantiShrimp/blob/main/AUTHORS.md) for
+the full contribution statement and
+[`CITATION.cff`](https://github.com/sthsci/MantiShrimp/blob/main/CITATION.cff)
+for machine-readable citation metadata.
 
 ## Development
 
 ```bash
-python -m pip install -e '.[all]'
+python -m pip install -e '.[all,test]'
 pytest
 ```
 
