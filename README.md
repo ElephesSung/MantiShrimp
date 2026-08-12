@@ -79,7 +79,7 @@ The workflow above has three steps:
 
 1. Each killer cell `i` has a latent event rate $\lambda_i$.
 2. Over exposure time $T_i$, its observed count is modelled as
-   $N_i\mid\lambda_i,T_i\sim\operatorname{Poisson}(\lambda_iT_i)$.
+   $N_i\mid\lambda_i,T_i\sim\mathrm{Poisson}(\lambda_iT_i)$.
 3. Bayesian inference combines the count likelihood with the parameter priors
    to estimate $p(\theta\mid\mathcal{D})$, where
    $\theta=(\mu_\lambda,\sigma_\lambda,\phi_0)$.
