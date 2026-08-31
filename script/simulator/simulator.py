@@ -3,7 +3,7 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 sys.path.append('./')
-from NEWassistant_functions import *
+from assistant_function import *
 
 
 def KTSimulator(
